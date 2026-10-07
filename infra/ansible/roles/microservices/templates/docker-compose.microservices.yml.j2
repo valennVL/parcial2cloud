@@ -1,0 +1,137 @@
+services:
+  mysql-users:
+    image: mysql:8.0
+    container_name: mysql-users
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: users_db
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql-users-data:/var/lib/mysql
+
+  mysql-products:
+    image: mysql:8.0
+    container_name: mysql-products
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: products_db
+    ports:
+      - "3308:3306"
+    volumes:
+      - mysql-products-data:/var/lib/mysql
+
+  mysql-orders:
+    image: mysql:8.0
+    container_name: mysql-orders
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: orders_db
+    ports:
+      - "3309:3306"
+    volumes:
+      - mysql-orders-data:/var/lib/mysql
+
+  users-service:
+    image: {{ dockerhub_user }}/users-service:{{ image_tag }}
+    container_name: users-service
+    restart: always
+    environment:
+      MYSQL_HOST: mysql-users
+      MYSQL_USER: root
+      MYSQL_PASSWORD: root
+      MYSQL_DB: users_db
+      CONSUL_HOST: localhost
+      SERVICE_HOST: users-service
+    ports:
+      - "3001:3001"
+    depends_on:
+      - mysql-users
+
+  users-service-r2:
+    image: {{ dockerhub_user }}/users-service:{{ image_tag }}
+    container_name: users-service-r2
+    restart: always
+    environment:
+      MYSQL_HOST: mysql-users
+      MYSQL_USER: root
+      MYSQL_PASSWORD: root
+      MYSQL_DB: users_db
+      CONSUL_HOST: localhost
+      SERVICE_HOST: users-service-r2
+    ports:
+      - "3011:3001"
+    depends_on:
+      - mysql-users
+
+  products-service:
+    image: {{ dockerhub_user }}/products-service:{{ image_tag }}
+    container_name: products-service
+    restart: always
+    environment:
+      MYSQL_HOST: mysql-products
+      MYSQL_USER: root
+      MYSQL_PASSWORD: root
+      MYSQL_DB: products_db
+      CONSUL_HOST: localhost
+      SERVICE_HOST: products-service
+    ports:
+      - "3002:3002"
+    depends_on:
+      - mysql-products
+
+  products-service-r2:
+    image: {{ dockerhub_user }}/products-service:{{ image_tag }}
+    container_name: products-service-r2
+    restart: always
+    environment:
+      MYSQL_HOST: mysql-products
+      MYSQL_USER: root
+      MYSQL_PASSWORD: root
+      MYSQL_DB: products_db
+      CONSUL_HOST: localhost
+      SERVICE_HOST: products-service-r2
+    ports:
+      - "3012:3002"
+    depends_on:
+      - mysql-products
+
+  orders-service:
+    image: {{ dockerhub_user }}/orders-service:{{ image_tag }}
+    container_name: orders-service
+    restart: always
+    environment:
+      MYSQL_HOST: mysql-orders
+      MYSQL_USER: root
+      MYSQL_PASSWORD: root
+      MYSQL_DB: orders_db
+      CONSUL_HOST: localhost
+      SERVICE_HOST: orders-service
+    ports:
+      - "3003:3003"
+    depends_on:
+      - mysql-orders
+
+  orders-service-r2:
+    image: {{ dockerhub_user }}/orders-service:{{ image_tag }}
+    container_name: orders-service-r2
+    restart: always
+    environment:
+      MYSQL_HOST: mysql-orders
+      MYSQL_USER: root
+      MYSQL_PASSWORD: root
+      MYSQL_DB: orders_db
+      CONSUL_HOST: localhost
+      SERVICE_HOST: orders-service-r2
+    ports:
+      - "3013:3003"
+    depends_on:
+      - mysql-orders
+
+volumes:
+  mysql-users-data:
+  mysql-products-data:
+  mysql-orders-data:

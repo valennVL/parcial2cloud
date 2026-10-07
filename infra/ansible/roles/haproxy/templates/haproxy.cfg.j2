@@ -1,0 +1,61 @@
+global
+    log /dev/log local0
+    log /dev/log local1 notice
+    chroot /var/lib/haproxy
+    stats socket /run/haproxy/admin.sock mode 660 level admin expose-fd listeners
+    stats timeout 30s
+    user haproxy
+    group haproxy
+    daemon
+
+defaults
+    log global
+    mode http
+    option httplog
+    option dontlognull
+    timeout connect 5s
+    timeout client 50s
+    timeout server 50s
+
+frontend http_front
+    bind *:80
+    acl is_users path_beg /api/users
+    acl is_products path_beg /api/products
+    acl is_orders path_beg /api/orders
+
+    use_backend users_back if is_users
+    use_backend products_back if is_products
+    use_backend orders_back if is_orders
+    default_backend not_found_back
+
+backend users_back
+    balance roundrobin
+    option httpchk GET /health
+    http-response set-header X-Backend %[srv_name]
+    server users1 10.30.10.20:3001 check
+    server users2 10.30.10.20:3011 check
+
+backend products_back
+    balance roundrobin
+    option httpchk GET /health
+    http-response set-header X-Backend %[srv_name]
+    server products1 10.30.10.20:3002 check
+    server products2 10.30.10.20:3012 check
+
+backend orders_back
+    balance roundrobin
+    option httpchk GET /health
+    http-response set-header X-Backend %[srv_name]
+    server orders1 10.30.10.20:3003 check
+    server orders2 10.30.10.20:3013 check
+
+backend not_found_back
+    http-request return status 404 content-type application/json lf-string "{\"message\":\"Route not found\"}"
+
+listen stats
+    bind *:8080
+    mode http
+    stats enable
+    stats uri /stats
+    stats refresh 5s
+    stats auth admin:admin123

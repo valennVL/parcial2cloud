@@ -1,0 +1,95 @@
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Install Docker dependencies
+  ansible.builtin.apt:
+    name:
+      - ca-certificates
+      - curl
+      - gnupg
+      - lsb-release
+    state: present
+
+- name: Create keyring directory
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: "0755"
+
+- name: Add Docker official GPG key
+  ansible.builtin.shell: |
+    set -euo pipefail
+    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+  args:
+    executable: /bin/bash
+    creates: /etc/apt/keyrings/docker.gpg
+
+- name: Add Docker apt repository
+  ansible.builtin.copy:
+    dest: /etc/apt/sources.list.d/docker.list
+    mode: "0644"
+    content: |
+      deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu jammy stable
+
+- name: Install Docker engine and compose plugin
+  ansible.builtin.apt:
+    update_cache: true
+    name:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+      - docker-compose-plugin
+    state: present
+
+- name: Ensure Docker service is enabled and running
+  ansible.builtin.service:
+    name: docker
+    state: started
+    enabled: true
+
+- name: Add SSH user to docker group
+  ansible.builtin.user:
+    name: "{{ ansible_user }}"
+    groups: docker
+    append: true
+
+- name: Create deployment directory
+  ansible.builtin.file:
+    path: /opt/microservices
+    state: directory
+    mode: "0755"
+
+- name: Render microservices compose file
+  ansible.builtin.template:
+    src: docker-compose.microservices.yml.j2
+    dest: /opt/microservices/docker-compose.yml
+    mode: "0644"
+
+- name: Launch microservices stack
+  ansible.builtin.command:
+    cmd: docker compose -f /opt/microservices/docker-compose.yml up -d
+  changed_when: true
+
+- name: Ensure replica microservices are started
+  ansible.builtin.command:
+    cmd: docker compose -f /opt/microservices/docker-compose.yml up -d users-service-r2 products-service-r2 orders-service-r2
+  changed_when: true
+
+- name: Wait until all microservice containers are running
+  ansible.builtin.shell: |
+    set -euo pipefail
+    docker ps --format '{{"{{"}}.Names{{"}}"}}' | grep -E '^(users-service|users-service-r2|products-service|products-service-r2|orders-service|orders-service-r2)$' | wc -l
+  args:
+    executable: /bin/bash
+  register: running_microservices
+  changed_when: false
+  retries: 10
+  delay: 6
+  until: running_microservices.stdout | int == 6
+
+- name: Fail if not all microservices are running
+  ansible.builtin.fail:
+    msg: "Expected 6 running microservice containers (primary + r2 replicas for users/products/orders)."
+  when: running_microservices.stdout | int < 6

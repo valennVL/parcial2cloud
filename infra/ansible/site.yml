@@ -1,0 +1,11 @@
+- name: Configure vm-haproxy
+  hosts: haproxy
+  become: true
+  roles:
+    - haproxy
+
+- name: Configure vm-microservices
+  hosts: microservices
+  become: true
+  roles:
+    - microservices

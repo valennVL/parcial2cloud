@@ -1,0 +1,300 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: microapp
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mysql-users
+  namespace: microapp
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mysql-users
+  template:
+    metadata:
+      labels:
+        app: mysql-users
+    spec:
+      restartPolicy: Always
+      containers:
+        - name: mysql
+          image: mysql:8.0
+          ports:
+            - containerPort: 3306
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              value: root
+            - name: MYSQL_DATABASE
+              value: users_db
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql-users
+  namespace: microapp
+spec:
+  type: ClusterIP
+  selector:
+    app: mysql-users
+  ports:
+    - port: 3306
+      targetPort: 3306
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mysql-products
+  namespace: microapp
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mysql-products
+  template:
+    metadata:
+      labels:
+        app: mysql-products
+    spec:
+      restartPolicy: Always
+      containers:
+        - name: mysql
+          image: mysql:8.0
+          ports:
+            - containerPort: 3306
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              value: root
+            - name: MYSQL_DATABASE
+              value: products_db
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql-products
+  namespace: microapp
+spec:
+  type: ClusterIP
+  selector:
+    app: mysql-products
+  ports:
+    - port: 3306
+      targetPort: 3306
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mysql-orders
+  namespace: microapp
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mysql-orders
+  template:
+    metadata:
+      labels:
+        app: mysql-orders
+    spec:
+      restartPolicy: Always
+      containers:
+        - name: mysql
+          image: mysql:8.0
+          ports:
+            - containerPort: 3306
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              value: root
+            - name: MYSQL_DATABASE
+              value: orders_db
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql-orders
+  namespace: microapp
+spec:
+  type: ClusterIP
+  selector:
+    app: mysql-orders
+  ports:
+    - port: 3306
+      targetPort: 3306
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: users-deploy
+  namespace: microapp
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: users-service
+  template:
+    metadata:
+      labels:
+        app: users-service
+    spec:
+      restartPolicy: Always
+      containers:
+        - name: users-service
+          image: joseligo/users-service:v1.0
+          ports:
+            - containerPort: 3001
+          env:
+            - name: MYSQL_HOST
+              value: mysql-users
+            - name: MYSQL_USER
+              value: root
+            - name: MYSQL_PASSWORD
+              value: root
+            - name: MYSQL_DB
+              value: users_db
+            - name: CONSUL_HOST
+              value: localhost
+            - name: SERVICE_HOST
+              value: users-service
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: users-svc
+  namespace: microapp
+spec:
+  type: ClusterIP
+  selector:
+    app: users-service
+  ports:
+    - port: 3001
+      targetPort: 3001
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: products-deploy
+  namespace: microapp
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: products-service
+  template:
+    metadata:
+      labels:
+        app: products-service
+    spec:
+      restartPolicy: Always
+      containers:
+        - name: products-service
+          image: joseligo/products-service:v1.0
+          ports:
+            - containerPort: 3002
+          env:
+            - name: MYSQL_HOST
+              value: mysql-products
+            - name: MYSQL_USER
+              value: root
+            - name: MYSQL_PASSWORD
+              value: root
+            - name: MYSQL_DB
+              value: products_db
+            - name: CONSUL_HOST
+              value: localhost
+            - name: SERVICE_HOST
+              value: products-service
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: products-svc
+  namespace: microapp
+spec:
+  type: ClusterIP
+  selector:
+    app: products-service
+  ports:
+    - port: 3002
+      targetPort: 3002
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: orders-deploy
+  namespace: microapp
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: orders-service
+  template:
+    metadata:
+      labels:
+        app: orders-service
+    spec:
+      restartPolicy: Always
+      containers:
+        - name: orders-service
+          image: joseligo/orders-service:v1.0
+          ports:
+            - containerPort: 3003
+          env:
+            - name: MYSQL_HOST
+              value: mysql-orders
+            - name: MYSQL_USER
+              value: root
+            - name: MYSQL_PASSWORD
+              value: root
+            - name: MYSQL_DB
+              value: orders_db
+            - name: CONSUL_HOST
+              value: localhost
+            - name: SERVICE_HOST
+              value: orders-service
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: orders-svc
+  namespace: microapp
+spec:
+  type: ClusterIP
+  selector:
+    app: orders-service
+  ports:
+    - port: 3003
+      targetPort: 3003
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: microapp-ingress
+  namespace: microapp
+spec:
+  ingressClassName: nginx
+  rules:
+    - http:
+        paths:
+          - path: /api/users
+            pathType: Prefix
+            backend:
+              service:
+                name: users-svc
+                port:
+                  number: 3001
+          - path: /api/products
+            pathType: Prefix
+            backend:
+              service:
+                name: products-svc
+                port:
+                  number: 3002
+          - path: /api/orders
+            pathType: Prefix
+            backend:
+              service:
+                name: orders-svc
+                port:
+                  number: 3003
